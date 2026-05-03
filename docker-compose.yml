@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: vdic
+      POSTGRES_PASSWORD: vdicpass
+      POSTGRES_DB: vdic
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  server:
+    build:
+      context: ./server
+    environment:
+      DATABASE_URL: postgres://vdic:vdicpass@db:5432/vdic
+      PORT: 4000
+      PREVIEW_AUTH: 'false'
+    depends_on:
+      - db
+    ports:
+      - "4000:4000"
+
+volumes:
+  db-data:

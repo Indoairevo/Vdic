@@ -1,0 +1,5 @@
+{
+  "name": "VDIC ERP",
+  "description": "Vaidik Dharm Inter College ERP System",
+  "requestFramePermissions": ["camera", "publickey-credentials-get", "publickey-credentials-create"]
+}

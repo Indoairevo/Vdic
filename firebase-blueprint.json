@@ -1,0 +1,158 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "className": { "type": "string" },
+        "rollNo": { "type": "string" },
+        "phone": { "type": "string" },
+        "subject": { "type": "string" },
+        "assignedClass": { "type": "string" }
+      },
+      "required": ["id", "name", "role"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Attendance record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["userId", "date", "status"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "School notice",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "target": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["title", "content", "target", "date"]
+    },
+    "Homework": {
+      "title": "Homework",
+      "description": "Homework assignment",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string" },
+        "className": { "type": "string" },
+        "subject": { "type": "string" },
+        "image_url": { "type": "string" }
+      },
+      "required": ["title", "description", "date", "className", "subject"]
+    },
+    "Finance": {
+      "title": "Finance",
+      "description": "Finance transaction",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" }
+      },
+      "required": ["type", "description", "amount", "date"]
+    },
+    "Exam": {
+      "title": "Exam",
+      "description": "Exam schedule",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "date": { "type": "string" },
+        "className": { "type": "string" },
+        "subject": { "type": "string" }
+      },
+      "required": ["name", "date", "className", "subject"]
+    },
+    "Mark": {
+      "title": "Mark",
+      "description": "Student exam mark",
+      "type": "object",
+      "properties": {
+        "student_id": { "type": "string" },
+        "subject_id": { "type": "string" },
+        "exam_id": { "type": "string" },
+        "marks": { "type": "number" },
+        "max_marks": { "type": "number" }
+      },
+      "required": ["student_id", "subject_id", "exam_id", "marks"]
+    },
+    "Fee": {
+      "title": "Fee",
+      "description": "Fee record",
+      "type": "object",
+      "properties": {
+        "student_id": { "type": "string" },
+        "amount": { "type": "number" },
+        "due_date": { "type": "string" },
+        "status": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": ["student_id", "amount", "due_date", "status"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "User complaint",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "status": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["userId", "text", "status", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": { "$ref": "Attendance" },
+      "description": "Attendance records"
+    },
+    "/notices/{noticeId}": {
+      "schema": { "$ref": "Notice" },
+      "description": "School notices"
+    },
+    "/homeworks/{homeworkId}": {
+      "schema": { "$ref": "Homework" },
+      "description": "Homework assignments"
+    },
+    "/finances/{financeId}": {
+      "schema": { "$ref": "Finance" },
+      "description": "Finance transactions"
+    },
+    "/exams/{examId}": {
+      "schema": { "$ref": "Exam" },
+      "description": "Exam schedules"
+    },
+    "/marks/{markId}": {
+      "schema": { "$ref": "Mark" },
+      "description": "Student marks"
+    },
+    "/fees/{feeId}": {
+      "schema": { "$ref": "Fee" },
+      "description": "Fee records"
+    },
+    "/complaints/{complaintId}": {
+      "schema": { "$ref": "Complaint" },
+      "description": "User complaints"
+    }
+  }
+}
