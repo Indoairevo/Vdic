@@ -81,25 +81,34 @@ async function startServer() {
     });
   }
 
+  const authenticateSocket = (socket, token) => {
+    try {
+      const payload = jwt.verify(token, env.JWT_SECRET);
+      socket.user = payload;
+      onlineUsers.set(socket.id, {
+        id: payload.id,
+        name: payload.name || 'Unknown',
+        role: payload.role,
+        socketId: socket.id,
+        lastSeen: new Date().toISOString()
+      });
+      io.emit('online_users_count', onlineUsers.size);
+    } catch (err) {
+      console.error('Socket auth failed', err.message);
+    }
+  };
+
   io.on('connection', (socket) => {
     console.log('Socket connected', socket.id);
+    const handshakeToken = socket.handshake?.auth?.token;
+    if (handshakeToken) {
+      authenticateSocket(socket, handshakeToken);
+    }
     
     socket.on('authenticate', (data) => {
-      if (data && data.token) {
-        try {
-          const payload = jwt.verify(data.token, env.JWT_SECRET);
-          socket.user = payload;
-          onlineUsers.set(socket.id, {
-            id: payload.id,
-            name: payload.name,
-            role: payload.role,
-            socketId: socket.id,
-            lastSeen: new Date().toISOString()
-          });
-          io.emit('online_users_count', onlineUsers.size);
-        } catch (err) {
-          console.error('Socket auth failed', err.message);
-        }
+      const token = data && typeof data === 'object' ? data.token : data;
+      if (token) {
+        authenticateSocket(socket, token);
       }
     });
 

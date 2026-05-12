@@ -11,12 +11,21 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
+import rateLimit from 'express-rate-limit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret';
+
+const onlineUsersLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 router.use(express.json());
 
@@ -1603,6 +1612,12 @@ router.get('/logs', requireAuth, requireRole('admin'), async (req, res) => {
   }
 });
 
+router.get('/online-users', onlineUsersLimiter, requireAuth, requireRole('admin'), (req, res) => {
+  const onlineUsers = req.app.locals.onlineUsers;
+  if (!onlineUsers) return res.json([]);
+  res.json(Array.from(onlineUsers.values()));
+});
+
 router.get('/admin/stats', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const userCount = sqliteDb.prepare('SELECT role, COUNT(*) as count FROM users GROUP BY role').all();
@@ -2142,4 +2157,3 @@ router.put('/inventory/items/:id', requireAuth, requireRole(['admin']), async (r
 });
 
 export default router;
-

@@ -14,7 +14,6 @@ import {
   Newspaper, Video, DownloadCloud, User, Globe, HeadphonesIcon, ChevronDown, Bus, Package
 } from 'lucide-react';
 import axios from 'axios';
-import { getUsers, getUser, addUser, updateUser, deleteUser, getAttendance, addAttendance, getAll, addOne, updateOne, deleteOne } from './firebaseService';
 import { io } from 'socket.io-client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { GoogleGenAI } from "@google/genai";
@@ -547,6 +546,7 @@ export default function App() {
     socketRef.current.on('connect', () => {
       console.log('socket connected');
       setIsConnected(true);
+      socketRef.current.emit('authenticate', { token });
     });
     socketRef.current.on('disconnect', () => {
       setIsConnected(false);
@@ -650,7 +650,7 @@ export default function App() {
       
       // Authenticate socket for online status
       if (socketRef.current) {
-        socketRef.current.emit('authenticate', user);
+        socketRef.current.emit('authenticate', { token });
       }
 
       showToast(`Authentication successful. Welcome, ${user.name}!`, 'success');
@@ -3908,11 +3908,7 @@ function StudentManagementPage({ axios, setView, showToast }) {
 
   const handleAddStudent = (e) => {
     e.preventDefault();
-    axios.post('/api/users', newUser).then((res) => {
-      const createdId = res.data.id;
-      // Sync to Firebase
-      addUser({ ...newUser, id: createdId }).catch(e => console.error("Firebase sync failed", e));
-      
+    axios.post('/api/users', newUser).then(() => {
       setShowAddModal(false);
       setNewUser({ role: 'student', name: '', email: '', phone: '', className: '', rollNo: '', key: '' });
       fetchStudents();
@@ -3929,9 +3925,6 @@ function StudentManagementPage({ axios, setView, showToast }) {
   const saveEditStudent = (e) => {
     e.preventDefault();
     axios.put(`/api/users/${editingStudent.id}`, editingStudent).then(() => {
-      // Sync to Firebase
-      updateUser(editingStudent.id, editingStudent).catch(e => console.error("Firebase sync failed", e));
-      
       setEditingStudent(null);
       fetchStudents();
       showToast('Student updated successfully', 'success');
@@ -3945,9 +3938,6 @@ function StudentManagementPage({ axios, setView, showToast }) {
   const confirmDeleteStudent = () => {
     if (!confirmDialog.id) return;
     axios.delete(`/api/users/${confirmDialog.id}`).then(() => {
-      // Sync to Firebase
-      deleteUser(confirmDialog.id).catch(e => console.error("Firebase sync failed", e));
-      
       fetchStudents();
       showToast('Student removed successfully', 'success');
       setConfirmDialog({ isOpen: false, id: null });
@@ -3981,9 +3971,7 @@ function StudentManagementPage({ axios, setView, showToast }) {
         const student = students.find(s => s.id === id);
         if (student) {
           const updatedStudent = { ...student, className: bulkEditClass };
-          return axios.put(`/api/users/${id}`, updatedStudent).then(() => {
-            updateUser(id, updatedStudent).catch(e => console.error("Firebase sync failed", e));
-          });
+          return axios.put(`/api/users/${id}`, updatedStudent);
         }
         return Promise.resolve();
       }));
@@ -4321,11 +4309,7 @@ function EmployeeManagementPage({ axios, currentUser, showToast }) {
 
   const handleAddEmployee = (e) => {
     e.preventDefault();
-    axios.post('/api/users', newEmployee).then((res) => {
-      const createdId = res.data.id;
-      // Sync to Firebase
-      addUser({ ...newEmployee, id: createdId }).catch(e => console.error("Firebase sync failed", e));
-      
+    axios.post('/api/users', newEmployee).then(() => {
       setShowAddModal(false);
       setNewEmployee({ role: 'teacher', name: '', email: '', phone: '', subject: '', key: '' });
       fetchEmployees();
@@ -4336,9 +4320,6 @@ function EmployeeManagementPage({ axios, currentUser, showToast }) {
   const saveEditEmployee = (e) => {
     e.preventDefault();
     axios.put(`/api/users/${editingEmployee.id}`, editingEmployee).then(() => {
-      // Sync to Firebase
-      updateUser(editingEmployee.id, editingEmployee).catch(e => console.error("Firebase sync failed", e));
-      
       setEditingEmployee(null);
       fetchEmployees();
       showToast('Employee updated successfully', 'success');
@@ -4352,9 +4333,6 @@ function EmployeeManagementPage({ axios, currentUser, showToast }) {
   const confirmDeleteEmployee = () => {
     if (!confirmDialog.id) return;
     axios.delete(`/api/users/${confirmDialog.id}`).then(() => {
-      // Sync to Firebase
-      deleteUser(confirmDialog.id).catch(e => console.error("Firebase sync failed", e));
-      
       fetchEmployees();
       showToast('Employee deleted successfully', 'success');
       setConfirmDialog({ isOpen: false, id: null });
@@ -5021,29 +4999,7 @@ function FinancePage({ axios, showToast }) {
   const [history, setHistory] = useState([]);
   const [newTransaction, setNewTransaction] = useState({ type: 'income', description: '', amount: '' });
 
-  const fetchFinances = useCallback(async () => {
-    try {
-      const firebaseHistory = await getAll('finances');
-      if (firebaseHistory && firebaseHistory.length > 0) {
-        setHistory(firebaseHistory.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
-        // Calculate balance from history
-        let balance = 0, income = 0, expense = 0;
-        firebaseHistory.forEach(t => {
-          const amt = Number(t.amount);
-          if (t.type === 'income') {
-            balance += amt;
-            income += amt;
-          } else {
-            balance -= amt;
-            expense += amt;
-          }
-        });
-        setFinances({ balance, income, expense });
-        return;
-      }
-    } catch (e) {
-      console.error("Firebase fetch failed", e);
-    }
+  const fetchFinances = useCallback(() => {
     axios.get('/api/finances').then(r => {
       setFinances(r.data.finances || { balance: 0, income: 0, expense: 0 });
       setHistory(r.data.history || []);
@@ -5089,10 +5045,6 @@ function FinancePage({ axios, showToast }) {
     setNewTransaction({ type: 'income', description: '', amount: '' });
 
     axios.post('/api/transactions', newTransaction).then(() => {
-      // Sync to Firebase
-      addOne('finances', { ...newTransaction, amount: Number(newTransaction.amount), date: new Date().toISOString() })
-        .catch(e => console.error("Firebase sync failed", e));
-      
       fetchFinances(); // Sync with server eventually
       showToast('Transaction recorded successfully', 'success');
     }).catch(err => {
@@ -5325,16 +5277,7 @@ function NoticesPage({  axios, currentUser , showToast }) {
   const [content, setContent] = useState('');
   const [target, setTarget] = useState('all');
 
-  const fetchNotices = useCallback(async () => {
-    try {
-      const firebaseNotices = await getAll('notices');
-      if (firebaseNotices && firebaseNotices.length > 0) {
-        setNotices(firebaseNotices.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
-        return;
-      }
-    } catch (e) {
-      console.error("Firebase fetch failed", e);
-    }
+  const fetchNotices = useCallback(() => {
     axios.get('/api/notices').then(r => setNotices(r.data)).catch(()=>{});
   }, [axios]);
 
@@ -5347,9 +5290,6 @@ function NoticesPage({  axios, currentUser , showToast }) {
     e.preventDefault();
     const noticeData = { title, content, target, date: new Date().toISOString() };
     axios.post('/api/notices', noticeData).then(() => {
-      // Sync to Firebase
-      addOne('notices', noticeData).catch(e => console.error("Firebase sync failed", e));
-      
       fetchNotices();
       setTitle('');
       setContent('');
@@ -5359,9 +5299,6 @@ function NoticesPage({  axios, currentUser , showToast }) {
   const deleteNotice = (id) => {
     if (!window.confirm('Are you sure you want to delete this notice?')) return;
     axios.delete(`/api/notices/${id}`).then(() => {
-      // Sync to Firebase
-      deleteOne('notices', id).catch(e => console.error("Firebase sync failed", e));
-      
       fetchNotices();
     }).catch(() => showToast('Failed to delete notice', 'error'));
   };
@@ -5430,16 +5367,7 @@ function ComplaintsPage({  axios, currentUser , showToast }) {
   const [complaints, setComplaints] = useState([]);
   const [text, setText] = useState('');
 
-  const fetchComplaints = useCallback(async () => {
-    try {
-      const firebaseComplaints = await getAll('complaints');
-      if (firebaseComplaints && firebaseComplaints.length > 0) {
-        setComplaints(firebaseComplaints);
-        return;
-      }
-    } catch (e) {
-      console.error("Firebase fetch failed", e);
-    }
+  const fetchComplaints = useCallback(() => {
     if (currentUser.role === 'admin') {
       axios.get('/api/complaints').then(r => setComplaints(r.data)).catch(()=>{});
     }
@@ -5453,10 +5381,6 @@ function ComplaintsPage({  axios, currentUser , showToast }) {
   const submit = (e) => {
     e.preventDefault();
     axios.post('/api/complaints', { text }).then(() => {
-      // Sync to Firebase
-      addOne('complaints', { userId: currentUser.id, text, status: 'Pending', date: new Date().toISOString() })
-        .catch(e => console.error("Firebase sync failed", e));
-      
       if (currentUser.role === 'admin') {
         fetchComplaints();
       } else {
@@ -5468,9 +5392,6 @@ function ComplaintsPage({  axios, currentUser , showToast }) {
 
   const updateStatus = (id, newStatus) => {
     axios.put(`/api/complaints/${id}`, { status: newStatus }).then(() => {
-      // Sync to Firebase
-      updateOne('complaints', id, { status: newStatus })
-        .catch(e => console.error("Firebase sync failed", e));
       fetchComplaints();
     });
   };
@@ -5478,8 +5399,6 @@ function ComplaintsPage({  axios, currentUser , showToast }) {
   const deleteComplaint = (id) => {
     if (!window.confirm('Are you sure you want to delete this complaint?')) return;
     axios.delete(`/api/complaints/${id}`).then(() => {
-      // Sync to Firebase
-      deleteOne('complaints', id).catch(e => console.error("Firebase sync failed", e));
       fetchComplaints();
     }).catch(() => showToast('Failed to delete complaint', 'error'));
   };
@@ -5549,7 +5468,7 @@ function SettingsPage({  axios , showToast }) {
 
   const submit = (e) => {
     e.preventDefault();
-    axios.post('/api/change-password', { oldPassword, newPassword }).then(() => {
+    axios.post('/auth/change-password', { oldPassword, newPassword }).then(() => {
       showToast('Password changed successfully!', 'success');
       setOldPassword('');
       setNewPassword('');
@@ -6058,16 +5977,7 @@ function HomeworkPage({  axios, currentUser , showToast }) {
   // For teachers
   const [replyTexts, setReplyTexts] = useState({});
 
-  const fetchHomeworks = useCallback(async () => {
-    try {
-      const firebaseHomeworks = await getAll('homeworks');
-      if (firebaseHomeworks && firebaseHomeworks.length > 0) {
-        setHomeworks(firebaseHomeworks.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
-        return;
-      }
-    } catch (e) {
-      console.error("Firebase fetch failed", e);
-    }
+  const fetchHomeworks = useCallback(() => {
     axios.get('/api/homeworks').then(r => setHomeworks(r.data)).catch(()=>{});
   }, [axios]);
 
@@ -6089,9 +5999,6 @@ function HomeworkPage({  axios, currentUser , showToast }) {
     e.preventDefault();
     const hwData = { title, description, date, className, subject, image_url: imageUrl };
     axios.post('/api/homeworks', hwData).then(() => {
-      // Sync to Firebase
-      addOne('homeworks', hwData).catch(e => console.error("Firebase sync failed", e));
-      
       fetchHomeworks();
       setTitle('');
       setDescription('');
@@ -6129,9 +6036,6 @@ function HomeworkPage({  axios, currentUser , showToast }) {
   const deleteHomework = (hwId) => {
     if (!window.confirm('Are you sure you want to delete this homework?')) return;
     axios.delete(`/api/homeworks/${hwId}`).then(() => {
-      // Sync to Firebase
-      deleteOne('homeworks', hwId).catch(e => console.error("Firebase sync failed", e));
-      
       fetchHomeworks();
     }).catch(() => showToast('Failed to delete homework', 'error'));
   };
@@ -6310,26 +6214,8 @@ function AttendancePage({  axios, currentUser , showToast }) {
   const [attendance, setAttendance] = useState({});
   const [studentAttendance, setStudentAttendance] = useState([]);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(() => {
     if (currentUser.role === 'student') return;
-    try {
-      // Try fetching from Firebase first for permanent records
-      const firebaseUsers = await getUsers();
-      if (firebaseUsers && firebaseUsers.length > 0) {
-        let data = firebaseUsers;
-        data.sort((a, b) => a.name.localeCompare(b.name));
-        if (currentUser.role === 'teacher') {
-          data = data.filter(u => u.role === 'student' && u.className === currentUser.assignedClass);
-        } else if (currentUser.role === 'admin') {
-          data = data.filter(u => u.role === 'teacher');
-        }
-        setUsers(data);
-        return;
-      }
-    } catch (e) {
-      console.error("Firebase fetch failed, falling back to local API", e);
-    }
-
     axios.get('/api/users').then(r => {
       let data = r.data;
       data.sort((a, b) => a.name.localeCompare(b.name));
@@ -6342,25 +6228,12 @@ function AttendancePage({  axios, currentUser , showToast }) {
     }).catch(() => {});
   }, [axios, currentUser.role, currentUser.assignedClass]);
 
-  const fetchAttendance = useCallback(async () => {
+  const fetchAttendance = useCallback(() => {
     if (currentUser.role === 'student') {
-      try {
-        const firebaseAttendance = await getAttendance(currentUser.id);
-        if (firebaseAttendance && firebaseAttendance.length > 0) {
-          setStudentAttendance(firebaseAttendance.sort((a, b) => new Date(b.date) - new Date(a.date)));
-          return;
-        }
-      } catch (e) {
-        console.error("Firebase attendance fetch failed", e);
-      }
       axios.get(`/api/attendance/${currentUser.id}`).then(r => {
         setStudentAttendance(r.data.sort((a, b) => new Date(b.date) - new Date(a.date)));
       }).catch(() => {});
     } else {
-      // For teachers/admins, we might still want to fetch by date. 
-      // Our firebaseService.getAttendance is currently by userId. 
-      // Let's add a date-based fetch to firebaseService later if needed, 
-      // but for now we'll use the local API and sync to Firebase on mark.
       axios.get(`/api/attendance/date/${date}`).then(r => {
         const attMap = {};
         r.data.forEach(a => {
@@ -6383,9 +6256,6 @@ function AttendancePage({  axios, currentUser , showToast }) {
 
   const handleMark = (userId, status) => {
     setAttendance(prev => ({ ...prev, [userId]: status }));
-    // Save to Firebase for permanent storage
-    addAttendance({ userId, date, status }).catch(e => console.error("Firebase save failed", e));
-    // Also save to local API for current session consistency
     axios.post('/api/attendance', { userId, date, status }).then(() => {
       // Success feedback if needed
     }).catch(() => showToast('Failed to mark attendance', 'error'));
@@ -6687,21 +6557,7 @@ function FeesPage({  axios, currentUser , showToast }) {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
 
-  const fetchFees = useCallback(async () => {
-    try {
-      const firebaseFees = await getAll('fees');
-      if (firebaseFees && firebaseFees.length > 0) {
-        const sorted = firebaseFees.sort((a,b) => {
-          if (a.status === 'Pending Verification' && b.status !== 'Pending Verification') return -1;
-          if (a.status !== 'Pending Verification' && b.status === 'Pending Verification') return 1;
-          return new Date(b.due_date) - new Date(a.due_date);
-        });
-        setFees(sorted);
-        return;
-      }
-    } catch (e) {
-      console.error("Firebase fetch failed", e);
-    }
+  const fetchFees = useCallback(() => {
     axios.get('/api/fees').then(r => {
       const sorted = r.data.sort((a,b) => {
         if (a.status === 'Pending Verification' && b.status !== 'Pending Verification') return -1;
@@ -6751,10 +6607,6 @@ function FeesPage({  axios, currentUser , showToast }) {
     };
 
     axios.post('/api/fees', feeData).then(() => {
-      // Sync to Firebase
-      addOne('fees', feeData)
-        .catch(e => console.error("Firebase sync failed", e));
-      
       setShowCreateModal(false);
       setNewFee({ student_id: '', due_date: '', components: [{ name: 'Tuition Fee', amount: '' }] });
       fetchFees();
@@ -6770,10 +6622,6 @@ function FeesPage({  axios, currentUser , showToast }) {
   const submitPayment = (e) => {
     e.preventDefault();
     axios.post('/api/fees/pay', { feeId: selectedFee.id, providerRef }).then(() => {
-      // Sync to Firebase
-      updateOne('fees', selectedFee.id, { status: 'Pending Verification', providerRef })
-        .catch(e => console.error("Firebase sync failed", e));
-      
       setShowPayModal(false);
       setProviderRef('');
       fetchFees();
@@ -6784,10 +6632,6 @@ function FeesPage({  axios, currentUser , showToast }) {
   const verifyPayment = (feeId) => {
     if(!window.confirm('Verify this payment?')) return;
     axios.post('/api/fees/verify', { feeId }).then(() => {
-      // Sync to Firebase
-      updateOne('fees', feeId, { status: 'Paid' })
-        .catch(e => console.error("Firebase sync failed", e));
-      
       fetchFees();
       showToast('Fee marked as Paid', 'success');
     }).catch(() => showToast('Failed to update fee status', 'error'));
@@ -6796,8 +6640,6 @@ function FeesPage({  axios, currentUser , showToast }) {
   const deleteFee = (id) => {
     if (!window.confirm('Are you sure you want to delete this fee record?')) return;
     axios.delete(`/api/fees/${id}`).then(() => {
-      // Sync to Firebase
-      deleteOne('fees', id).catch(e => console.error("Firebase sync failed", e));
       fetchFees();
     }).catch(() => showToast('Failed to delete fee', 'error'));
   };
@@ -7224,16 +7066,7 @@ function ExamsPage({  axios , showToast }) {
     x.class_id == classId
   );
 
-  const fetchExams = useCallback(async () => {
-    try {
-      const firebaseExams = await getAll('exams');
-      if (firebaseExams && firebaseExams.length > 0) {
-        setExams(firebaseExams);
-        return;
-      }
-    } catch (e) {
-      console.error("Firebase fetch failed", e);
-    }
+  const fetchExams = useCallback(() => {
     axios.get('/api/exams').then(r => setExams(r.data)).catch(()=>{});
   }, [axios]);
 
@@ -7274,19 +7107,6 @@ function ExamsPage({  axios , showToast }) {
       end_time: endTime,
       seating_plan: seatingPlan
     }).then(() => {
-      // Sync to Firebase
-      addOne('exams', { 
-        name: examType, 
-        date: date,
-        className: classId, 
-        subject: subjectId,
-        start_date: startDate,
-        end_date: endDate,
-        start_time: startTime,
-        end_time: endTime,
-        seating_plan: seatingPlan
-      }).catch(e => console.error("Firebase sync failed", e));
-      
       fetchExams();
       setSeatingPlan('');
     }).catch(() => showToast('Failed to create exam', 'error'));
