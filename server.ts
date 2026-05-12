@@ -87,7 +87,7 @@ async function startServer() {
       socket.user = payload;
       onlineUsers.set(socket.id, {
         id: payload.id,
-        name: payload.name || payload.id,
+        name: payload.name || 'Unknown',
         role: payload.role,
         socketId: socket.id,
         lastSeen: new Date().toISOString()
