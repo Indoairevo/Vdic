@@ -50,7 +50,7 @@ router.post('/login', loginLimiter, async (req, res) => {
           console.log('PG Login successful for:', u.id);
           const user = { ...u };
           delete user.key_hash;
-          const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
+          const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '8h' });
           
           logAction({
             userId: user.id,
@@ -81,7 +81,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       console.log('SQLite Login successful for:', u.id);
       const user = { ...u };
       delete user.key_hash;
-      const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
+      const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '8h' });
       
       logAction({
         userId: user.id,

@@ -1603,6 +1603,12 @@ router.get('/logs', requireAuth, requireRole('admin'), async (req, res) => {
   }
 });
 
+router.get('/online-users', requireAuth, requireRole('admin'), (req, res) => {
+  const onlineUsers = req.app.locals.onlineUsers;
+  if (!onlineUsers) return res.json([]);
+  res.json(Array.from(onlineUsers.values()));
+});
+
 router.get('/admin/stats', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const userCount = sqliteDb.prepare('SELECT role, COUNT(*) as count FROM users GROUP BY role').all();
@@ -2142,4 +2148,3 @@ router.put('/inventory/items/:id', requireAuth, requireRole(['admin']), async (r
 });
 
 export default router;
-
